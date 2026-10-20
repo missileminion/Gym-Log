@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Gym Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Locked in: black, bone, nothing else. The weight wheel is the one loud thing. */
+  :root{
+    --bg:#000; --bone:#f5f5f2; --mute:#7c7c78; --dim:#3a3a38; --line:#1f1f1f; --field:#080808;
+    --ok:#4ade80; --danger:#ff5d5d;
+    --item:64px;
+    --pad:16px;
+    --display:"Barlow Condensed","Roboto Condensed","Arial Narrow",sans-serif;
+    --body:Inter,Roboto,"Samsung One UI Sans",-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
+  body{margin:0;background:var(--bg);color:var(--bone);font:16px/1.4 var(--body);
+    padding:calc(env(safe-area-inset-top) + 14px) var(--pad) 0;touch-action:manipulation}
+  .wrap{max-width:520px;margin:0 auto;padding-bottom:calc(104px + env(safe-area-inset-bottom))}
+  button{font-family:inherit}
+
+  /* header */
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .brand{font:800 34px/1 var(--display);letter-spacing:.01em}
+  .today{position:relative;font-size:15px;color:var(--mute);font-variant-numeric:tabular-nums;padding:8px 0 5px;border-bottom:1px dashed var(--dim);cursor:pointer}
+  .today.off{color:var(--bone);border-bottom:1px solid var(--bone)}
+  .today input{position:absolute;inset:0;width:100%;height:100%;min-height:0;opacity:0;padding:0;border:0;cursor:pointer}
+  .today input:focus{outline:none}
+  .today:focus-within{outline:2px solid var(--bone);outline-offset:4px}
+
+  /* workout grid: the program as a table */
+  .days{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:16px}
+  .day{background:var(--bg);color:var(--bone);border:0;padding:12px 8px;text-align:center;cursor:pointer;min-height:60px}
+  .day b{display:block;font:800 30px/1 var(--display)}
+  .day i{display:block;font-style:normal;font-size:12px;color:var(--mute);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .day.on{background:var(--bone);color:#000}
+  .day.on i{color:#555}
+  .day:active{filter:brightness(.85)}
+
+  /* exercise */
+  .selwrap{position:relative}
+  .selwrap::after{content:"";position:absolute;right:14px;top:50%;width:8px;height:8px;border-right:2px solid var(--mute);border-bottom:2px solid var(--mute);transform:translateY(-70%) rotate(45deg);pointer-events:none}
+  select,input{width:100%;min-height:52px;background:var(--field);color:var(--bone);border:1px solid var(--line);border-radius:4px;padding:10px 14px;font:500 17px var(--body)}
+  select{appearance:none;-webkit-appearance:none;padding-right:38px;text-overflow:ellipsis}
+  select:focus,input:focus,button:focus-visible{outline:2px solid var(--bone);outline-offset:2px}
+  .info{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 12px;margin:9px 2px 0;font-size:13px;color:var(--mute);min-height:18px;font-variant-numeric:tabular-nums}
+  .info #last{color:#c9c9c4}
+
+  /* weight wheel: the hero */
+  .wheel-box{position:relative;height:calc(var(--item)*3);margin:6px calc(var(--pad)*-1) 0}
+  .wheel{height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;padding:var(--item) 0;scrollbar-width:none;
+    overscroll-behavior:contain;touch-action:pan-y;
+    -webkit-mask-image:linear-gradient(rgba(0,0,0,.3),#000 28%,#000 72%,rgba(0,0,0,.3));mask-image:linear-gradient(rgba(0,0,0,.3),#000 28%,#000 72%,rgba(0,0,0,.3))}
+  .wheel::-webkit-scrollbar{display:none}
+  .wheel div{height:var(--item);line-height:var(--item);text-align:center;scroll-snap-align:center;font:600 30px/var(--item) var(--display);color:#5d5d59;cursor:pointer;font-variant-numeric:tabular-nums}
+  .wheel div.sel{color:var(--bone);font-size:68px;font-weight:800}
+  .wheel div span{position:relative;display:inline-block}
+  .wheel div.sel span::after{content:"lb";position:absolute;left:100%;bottom:13px;margin-left:7px;font:600 18px/1 var(--display);color:var(--mute)}
+  .wheel-box::before,.wheel-box::after{content:"";position:absolute;left:var(--pad);right:var(--pad);height:1px;background:rgba(245,245,242,.28);pointer-events:none}
+  .wheel-box::before{top:var(--item)}
+  .wheel-box::after{top:calc(var(--item)*2)}
+
+  .under{display:flex;align-items:center;justify-content:center;margin-top:8px}
+  .seg{display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;flex:none}
+  .seg button{background:var(--field);color:var(--mute);border:0;width:52px;min-height:44px;font:600 17px var(--display);cursor:pointer}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button.on{background:var(--bone);color:#000}
+  .seg-label{font-size:12px;color:var(--mute);margin-right:8px}
+  .seg-wrap{display:flex;align-items:center;flex:none}
+
+  /* reps / sets / date */
+  .row{display:flex;gap:12px;margin-top:16px}
+  .row>*{flex:1;min-width:0}
+  label.l{display:block;font-size:13px;color:var(--mute);margin:0 0 6px}
+  .stepper{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+  .stepper button{flex:none;width:52px;min-height:64px;background:#121212;border:0;color:var(--bone);font:500 28px var(--body);cursor:pointer}
+  .stepper input{border:0;border-radius:0;text-align:center;font:800 40px var(--display);padding:0 2px;min-width:0;background:var(--bg);font-variant-numeric:tabular-nums}
+  .stepper button:active,.seg button:active,.chip:active{filter:brightness(.7)}
+
+  /* save bar */
+  .savebar{position:fixed;left:0;right:0;bottom:0;padding:22px var(--pad) calc(12px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top,#000 62%,rgba(0,0,0,0));z-index:5}
+  .save{display:block;width:100%;max-width:520px;margin:0 auto;min-height:60px;background:var(--bone);color:#000;border:0;border-radius:4px;font:800 26px/1 var(--display);letter-spacing:.02em;cursor:pointer}
+  .save:active{background:#cfcfca}
+  .toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translate(-50%,24px);background:#000;color:var(--ok);border:1px solid var(--ok);padding:9px 20px;border-radius:4px;opacity:0;transition:.18s;font:700 18px var(--display);pointer-events:none;z-index:6}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+
+  /* history */
+  .hist-head{display:flex;align-items:baseline;justify-content:space-between;margin:34px 0 10px}
+  .hist-head h2{font:800 28px/1 var(--display);margin:0}
+  .chips{display:flex;gap:18px;overflow-x:auto;scrollbar-width:none;margin:0 calc(var(--pad)*-1);padding:0 var(--pad);border-bottom:1px solid var(--line)}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:none;background:none;border:0;border-bottom:2px solid transparent;color:var(--mute);padding:10px 0 9px;font:600 17px var(--display);cursor:pointer;white-space:nowrap}
+  .chip.on{color:var(--bone);border-bottom-color:var(--bone)}
+  .date-head{font-size:13px;color:var(--mute);margin:22px 0 4px}
+  .entry{display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line);padding:11px 0 11px 0}
+  .entry .main{flex:1;min-width:0}
+  .entry .ex{font-weight:500;line-height:1.25;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .entry .meta{font-size:13px;color:var(--mute)}
+  .entry .w{text-align:right;white-space:nowrap}
+  .entry .w b{font:800 28px/1 var(--display);font-variant-numeric:tabular-nums}
+  .entry .w b span{font-size:15px;font-weight:600;color:var(--mute);margin-left:3px}
+  .entry .w small{display:block;color:var(--mute);font-size:13px;font-variant-numeric:tabular-nums}
+  .entry .w small .up{color:var(--ok);font-weight:600;margin-right:7px}
+  .entry .w small .down{color:var(--mute);margin-right:7px}
+  .del{background:none;border:0;color:var(--dim);font:400 24px var(--body);width:40px;height:48px;cursor:pointer}
+  .del:active{color:var(--danger)}
+  .empty{color:var(--mute);padding:28px 0}
+  .tools{display:flex;gap:10px;margin-top:26px}
+  .tools button{flex:1;min-height:48px;background:none;border:1px solid var(--line);color:var(--mute);border-radius:4px;font-size:14px;cursor:pointer}
+  .tools button:active{color:var(--bone)}
+
+  @media (max-width:340px){ .wheel div.sel{font-size:56px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">Gym log</div>
+    <label class="today" id="todayBox"><span id="today"></span><input id="date" type="date" aria-label="Log date"></label>
+  </div>
+
+  <div class="days" id="days"></div>
+
+  <div class="selwrap">
+    <select id="exercise" aria-label="Exercise"></select>
+  </div>
+  <div class="info"><span id="target"></span><span id="last"></span></div>
+
+  <div class="wheel-box">
+    <div class="wheel" id="wheel" aria-label="Weight in pounds"></div>
+  </div>
+
+  <div class="under">
+    <div class="seg-wrap">
+      <span class="seg-label">Step</span>
+      <div class="seg" id="stepSeg">
+        <button data-s="2.5" type="button">2.5</button>
+        <button data-s="5" type="button" class="on">5</button>
+        <button data-s="10" type="button">10</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label class="l">Reps</label>
+      <div class="stepper">
+        <button type="button" data-t="reps" data-d="-1" aria-label="Fewer reps">−</button>
+        <input id="reps" type="number" inputmode="numeric" min="0" value="8">
+        <button type="button" data-t="reps" data-d="1" aria-label="More reps">+</button>
+      </div>
+    </div>
+    <div>
+      <label class="l">Sets</label>
+      <div class="stepper">
+        <button type="button" data-t="sets" data-d="-1" aria-label="Fewer sets">−</button>
+        <input id="sets" type="number" inputmode="numeric" min="1" value="3">
+        <button type="button" data-t="sets" data-d="1" aria-label="More sets">+</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hist-head"><h2>History</h2></div>
+  <div class="chips" id="chips"></div>
+  <div id="log"></div>
+
+  <div class="tools">
+    <button id="export" type="button">Export CSV</button>
+  </div>
+</div>
+
+<div class="savebar"><button class="save" id="save" type="button">Log set</button></div>
+<div class="toast" id="toast">Logged</div>
+
+<script>
+const PROGRAM = {
+  "Legs": [
+    ["Hack squat / pendulum squat","3 × 6–10"],["Leg extension","3 × 10–15"],["Seated leg curl","3 × 10–12"],
+    ["Standing calf raise","3 × 8–12"],["Cable crunch","4 × 10–15"],
+    ["Leg press (feet high & wide)","3 × 8–12"],["Hip thrust machine","3 × 8–12"],["Seated leg curl / 45° back extension","3 × 10–12"],
+    ["Seated calf raise","3 × 10–15"],["Machine lateral raise","5 × 12–15"],["Hanging leg raise / weighted decline sit-up","3 × 10–15"]],
+  "Pull": [
+    ["Lat pulldown","3 × 8–12"],["Chest-supported row machine","3 × 8–10"],["Single-arm cable pulldown","2 × 10–12"],
+    ["Reverse pec deck","3 × 12–15"],["Bayesian cable curl","3 × 8–12"],["Smith machine shrug","3 × 10–15"],["Cable reverse curl","2 × 12–15"],
+    ["Neutral-grip pulldown / weighted pull-up","3 × 6–10"],["Seated cable row","3 × 8–12"],["Cable rear-delt fly","3 × 12–15"],
+    ["Machine preacher curl","3 × 8–12"],["Cable shrug","3 × 10–15"],["Cable wrist curl","2 × 12–20"]],
+  "Push": [
+    ["Incline Smith press (30°)","3 × 6–10"],["Machine chest press","3 × 8–10"],["Cable lateral raise","5 × 10–15"],
+    ["Pec deck","2 × 12–15"],["Overhead cable triceps extension","3 × 10–12"],
+    ["Machine shoulder press","3 × 6–10"],["Incline machine press","3 × 8–12"],
+    ["Low-to-high cable fly","2 × 12–15"],["Cable triceps pushdown","3 × 10–12"]]
+};
+
+const KEY = "gymlog.v1";
+const MAX_W = 600, ITEM_H = 64;           // keep in sync with --item
+let step = 5, weight = 45, filter = "All", lastIdx = -1, lastBuzz = 0;
+let curDay = Object.keys(PROGRAM)[0];
+let entries = [];
+try { entries = JSON.parse(localStorage.getItem(KEY)) || []; } catch(e){}
+try { const d = (localStorage.getItem(KEY+".day") || "").split(" ")[0]; if (d && PROGRAM[d]) curDay = d; } catch(e){}
+
+const $ = id => document.getElementById(id);
+const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(entries)); } catch(e){} };
+if (entries.some(e => e.day && e.day.includes(" "))) { entries.forEach(e => { if (e.day) e.day = e.day.split(" ")[0]; }); persist(); }
+const fmt = n => (Number.isInteger(n) ? n : n.toFixed(1));
+const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch(e){} };
+const dayName = k => k.split(" (")[0];
+
+/* ---------- workout + exercise ---------- */
+const exSel = $("exercise");
+function renderDays(){
+  const box = $("days"); box.innerHTML = "";
+  Object.keys(PROGRAM).forEach(k => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "day" + (k === curDay ? " on" : "");
+    b.innerHTML = "<b></b>";
+    b.firstChild.textContent = dayName(k);
+    b.onclick = () => {
+      curDay = k;
+      try { localStorage.setItem(KEY+".day", k); } catch(e){}
+      renderDays(); fillExercises(); buzz(8);
+    };
+    box.appendChild(b);
+  });
+}
+function fillExercises(){
+  exSel.innerHTML = "";
+  PROGRAM[curDay].forEach(([n]) => exSel.add(new Option(n, n)));
+  onExerciseChange();
+}
+function onExerciseChange(){
+  const ex = PROGRAM[curDay].find(e => e[0] === exSel.value);
+  $("target").textContent = ex ? "Target " + ex[1] : "";
+  const last = entries.filter(e => e.exercise === exSel.value).sort(cmpDesc)[0];
+  $("last").textContent = last ? `Last ${fmt(last.weight)} × ${last.reps}, ${shortDate(last.date)}` : "No previous log";
+  if (last) setWheel(last.weight);
+}
+exSel.onchange = onExerciseChange;
+
+/* ---------- wheel ---------- */
+const wheel = $("wheel");
+function buildWheel(){
+  const frag = document.createDocumentFragment();
+  for (let v = 0; v <= MAX_W + 1e-9; v += step){
+    const d = document.createElement("div");
+    const sp = document.createElement("span"); sp.textContent = fmt(v); d.appendChild(sp); d.dataset.v = v;
+    frag.appendChild(d);
+  }
+  wheel.innerHTML = ""; wheel.appendChild(frag);
+}
+wheel.addEventListener("click", e => {
+  const d = e.target.closest("div[data-v]"); if (!d) return;
+  wheel.scrollTo({top: Math.round(parseFloat(d.dataset.v)/step)*ITEM_H, behavior:"smooth"});
+});
+function setWheel(v){
+  weight = Math.round(v/step)*step;
+  buildWheel();
+  wheel.style.scrollSnapType = "none";
+  wheel.scrollTop = Math.round(weight/step)*ITEM_H;
+  requestAnimationFrame(() => { wheel.style.scrollSnapType = ""; });
+  lastIdx = -1; markSel(true);
+}
+function markSel(silent){
+  const idx = Math.round(wheel.scrollTop/ITEM_H);
+  const kids = wheel.children;
+  if (idx === lastIdx) return;
+  if (kids[lastIdx]) kids[lastIdx].classList.remove("sel");
+  if (kids[idx]){ kids[idx].classList.add("sel"); weight = parseFloat(kids[idx].dataset.v); }
+  lastIdx = idx;
+  const t = performance.now();
+  if (!silent && t - lastBuzz > 45){ lastBuzz = t; buzz(3); }   // haptic tick per notch
+}
+wheel.addEventListener("scroll", () => requestAnimationFrame(() => markSel()), {passive:true});
+$("stepSeg").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  [...$("stepSeg").children].forEach(x => x.classList.toggle("on", x === b));
+  const cur = weight; step = parseFloat(b.dataset.s); setWheel(cur); buzz(8);
+};
+
+/* ---------- steppers ---------- */
+document.querySelectorAll(".stepper button").forEach(b => b.onclick = () => {
+  const i = $(b.dataset.t); const min = i.id === "sets" ? 1 : 0;
+  i.value = Math.max(min, (parseInt(i.value)||0) + parseInt(b.dataset.d)); buzz(5);
+});
+
+/* ---------- date ---------- */
+function pad(n){ return String(n).padStart(2,"0"); }
+function nowDate(){ const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function toLocal(s){ const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); }
+function prettyDate(s){ return toLocal(s).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric",year:"numeric"}); }
+function shortDate(s){ return toLocal(s).toLocaleDateString("en-US",{month:"short",day:"numeric"}); }
+function showDate(){
+  const v = $("date").value || nowDate();
+  $("today").textContent = toLocal(v).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
+  $("todayBox").classList.toggle("off", v !== nowDate());
+}
+const cmpDesc = (a,b) => b.date.localeCompare(a.date) || b.id - a.id;
+
+/* ---------- save + render ---------- */
+$("save").onclick = () => {
+  if (!$("date").value) { $("date").value = nowDate(); showDate(); }
+  entries.push({
+    id: Date.now(), date: $("date").value,
+    day: curDay, exercise: exSel.value, weight,
+    reps: parseInt($("reps").value)||0, sets: parseInt($("sets").value)||1
+  });
+  persist(); render();
+  $("last").textContent = `Last ${fmt(weight)} × ${$("reps").value}, ${shortDate($("date").value)}`;
+  const t = $("toast"); t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), 1300);
+  buzz([20,40,20]);
+};
+
+function render(){
+  const chips = $("chips"); chips.innerHTML = "";
+  ["All", ...Object.keys(PROGRAM)].forEach(n => {
+    const c = document.createElement("button");
+    c.type = "button"; c.className = "chip" + (n === filter ? " on" : ""); c.textContent = n === "All" ? "All" : dayName(n);
+    c.onclick = () => { filter = n; render(); };
+    chips.appendChild(c);
+  });
+  const list = entries.filter(e => filter === "All" || e.day === filter).sort(cmpDesc);
+  const box = $("log"); box.innerHTML = "";
+  if (!list.length){ box.innerHTML = '<div class="empty">Nothing logged yet. Pick a weight and tap Log set.</div>'; return; }
+  const prev = {}, delta = {};
+  [...entries].sort((a,b) => a.date.localeCompare(b.date) || a.id - b.id).forEach(e => {
+    if (prev[e.exercise] !== undefined) delta[e.id] = Math.round((e.weight - prev[e.exercise])*10)/10;
+    prev[e.exercise] = e.weight;
+  });
+  let curDate = "";
+  list.forEach(e => {
+    if (e.date !== curDate){
+      curDate = e.date;
+      const h = document.createElement("div"); h.className = "date-head"; h.textContent = prettyDate(e.date);
+      box.appendChild(h);
+    }
+    const row = document.createElement("div"); row.className = "entry";
+    row.innerHTML = `<div class="main"><div class="ex"></div><div class="meta"></div></div>
+      <div class="w"></div><button class="del" type="button" aria-label="Delete entry">×</button>`;
+    row.querySelector(".ex").textContent = e.exercise;
+    row.querySelector(".meta").textContent = dayName(e.day);
+    const dl = delta[e.id];
+    const dh = dl > 0 ? `<span class="up">+${fmt(dl)}</span>` : dl < 0 ? `<span class="down">−${fmt(Math.abs(dl))}</span>` : "";
+    row.querySelector(".w").innerHTML = `<b>${fmt(e.weight)}<span>lb</span></b><small>${dh}${e.sets} × ${e.reps}</small>`;
+    row.querySelector(".del").onclick = () => {
+      if (confirm("Delete this entry?")){ entries = entries.filter(x => x.id !== e.id); persist(); render(); onExerciseChange(); }
+    };
+    box.appendChild(row);
+  });
+}
+
+/* ---------- tools ---------- */
+$("export").onclick = () => {
+  if (!entries.length) return alert("Nothing to export yet.");
+  const q = s => `"${String(s).replace(/"/g,'""')}"`;
+  const rows = [["Date","Workout","Exercise","Weight (lb)","Sets","Reps"].join(",")]
+    .concat([...entries].sort(cmpDesc).map(e => [e.date,q(e.day),q(e.exercise),e.weight,e.sets,e.reps].join(",")));
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([rows.join("\n")], {type:"text/csv"}));
+  a.download = "gym-log.csv"; a.click();
+};
+
+/* ---------- init ---------- */
+$("date").value = nowDate(); showDate();
+$("date").addEventListener("change", showDate);
+$("date").addEventListener("click", () => { try { $("date").showPicker(); } catch(e){} });
+setWheel(weight);
+renderDays();
+fillExercises();
+render();
+// refresh the date when returning to the app
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible"){ $("date").value = nowDate(); showDate(); }
+});
+</script>
+</body>
+</html>
